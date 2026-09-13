@@ -751,7 +751,9 @@ function renderState() {
   }).join('');
 
   // Live drops feed
-  const approvedDrops = history.filter(h => h.status === 'completed' && h.submitted_item);
+  const approvedDrops = history
+    .filter(h => h.status === 'completed' && h.submitted_item)
+    .sort((a, b) => new Date(b.sub_created_at || b.created_at) - new Date(a.sub_created_at || a.created_at));
   const feedEl = document.getElementById('drops-feed');
   if (!approvedDrops.length) {
     feedEl.innerHTML = '<div class="no-drops">No drops yet — be the first!</div>';

@@ -95,7 +95,7 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
                rb.boss_name, rbd.item_name as bonus_item, rbd.base_points as bonus_pts,
                et.team_name,
                rsub.status as sub_status, rsub.points_awarded, rsub.bonus_points,
-               rsub.player_name, rsub.double_down,
+               rsub.player_name, rsub.double_down, rsub.created_at as sub_created_at,
                rdrop.item_name as submitted_item, rdrop.image_url as submitted_image_url
         FROM roulette_spins rs
         JOIN roulette_bosses rb ON rb.id = rs.boss_id
