@@ -284,7 +284,7 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
         max_tokens: 256,
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: imageData } },
-          { type: 'text', text: `This is an Old School RuneScape screenshot. Look at the chatbox in the bottom-left of the image — it contains lines of chat text. Players show their RSN by typing in chat, which makes their name appear followed by a colon, like "PlayerName: message". Does the text "${player_name.trim()}" appear anywhere in the chatbox lines in the bottom-left? It may appear with a colon after it (e.g. "${player_name.trim()}:"), with or without colour formatting or clan tags around it. Reply with exactly "YES" or "NO" followed by a brief explanation.` }
+          { type: 'text', text: `This is an Old School RuneScape screenshot. Does the text "${player_name.trim()}" appear anywhere in this image? It may appear in the chatbox, interface, or anywhere on screen — look for it as part of a chat line like "${player_name.trim()}: " or just the name on its own. Reply with exactly "YES" or "NO" followed by a brief explanation.` }
         ]}]
       });
       const answer = response.content[0].text.trim();
