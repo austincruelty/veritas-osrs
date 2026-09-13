@@ -259,6 +259,8 @@ async function init() {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
 
+  try { _db.run('ALTER TABLE roulette_submissions ADD COLUMN double_down INTEGER NOT NULL DEFAULT 0'); } catch {}
+
   _db.run(`CREATE TABLE IF NOT EXISTS roulette_double_down (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER NOT NULL REFERENCES events(id),

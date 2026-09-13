@@ -400,8 +400,8 @@ module.exports = function makeAdminRouter(broadcast, broadcastTimer) {
       const total = (basePoints + bonusPoints) * multiplier;
       const ddNote = dd ? ' 🔥×2 Double Down' : '';
 
-      db.run('UPDATE roulette_submissions SET status = ?, points_awarded = ?, bonus_points = ? WHERE id = ?',
-        [status, basePoints * multiplier, bonusPoints * multiplier, sub.id]);
+      db.run('UPDATE roulette_submissions SET status = ?, points_awarded = ?, bonus_points = ?, double_down = ? WHERE id = ?',
+        [status, basePoints * multiplier, bonusPoints * multiplier, dd ? 1 : 0, sub.id]);
       db.run('UPDATE roulette_spins SET status = ? WHERE id = ?', ['completed', sub.spin_id]);
       db.run('INSERT INTO roulette_bank_log (event_id, team, amount, reason) VALUES (?, ?, ?, ?)',
         [sub.event_id, sub.team, total, `${drop?.item_name || 'Drop'} from boss${bonusPoints ? ` +${bonusPoints} bonus` : ''}${ddNote}`]);
