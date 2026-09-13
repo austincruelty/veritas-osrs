@@ -284,13 +284,14 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
         max_tokens: 256,
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: imageData } },
-          { type: 'text', text: `This is an Old School RuneScape screenshot. In OSRS the player's own username appears in the chatbox area in the bottom-left of the screen. Does the username "${player_name.trim()}" appear in the chatbox in the bottom-left of this image? Reply with exactly "YES" or "NO" followed by a brief explanation.` }
+          { type: 'text', text: `This is an Old School RuneScape screenshot. Look at the chatbox in the bottom-left of the image — it contains lines of chat text. Players show their RSN by typing in chat, which makes their name appear followed by a colon, like "PlayerName: message". Does the text "${player_name.trim()}" appear anywhere in the chatbox lines in the bottom-left? It may appear with a colon after it (e.g. "${player_name.trim()}:"), with or without colour formatting or clan tags around it. Reply with exactly "YES" or "NO" followed by a brief explanation.` }
         ]}]
       });
       const answer = response.content[0].text.trim();
+      console.log(`Double Down vision check for "${player_name}": ${answer}`);
       if (!answer.toUpperCase().startsWith('YES')) {
         cleanup();
-        return res.status(400).json({ error: `RSN "${player_name}" not found in the chatbox. Make sure your username is visible in the bottom-left.`, detail: answer });
+        return res.status(400).json({ error: `RSN "${player_name}" not found in the chatbox. Type anything in chat so your name is visible in the bottom-left, then screenshot.`, detail: answer });
       }
     } catch (err) {
       console.error('Claude vision error:', err.message);
