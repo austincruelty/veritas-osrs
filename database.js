@@ -259,6 +259,15 @@ async function init() {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
 
+  _db.run(`CREATE TABLE IF NOT EXISTS roulette_double_down (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES events(id),
+    team INTEGER NOT NULL,
+    activated_by TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+
   // Migrations: boss tier corrections
   try { db.run("UPDATE roulette_bosses SET wheel_tier = 1 WHERE boss_name = 'Gauntlet'"); } catch {}
   try { db.run("ALTER TABLE roulette_boss_drops ADD COLUMN image_url TEXT"); } catch {}

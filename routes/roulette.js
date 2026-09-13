@@ -38,6 +38,14 @@ function getConfig(eventId) {
     || { starting_bank: 500, respin_cost: 200, bonus_value: 100 };
 }
 
+function getActiveDoubleDown(eventId, teamNum) {
+  const now = new Date().toISOString();
+  return db.get(
+    'SELECT * FROM roulette_double_down WHERE event_id = ? AND team = ? AND end_time > ? ORDER BY end_time DESC LIMIT 1',
+    [eventId, teamNum, now]
+  );
+}
+
 module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
   const router = express.Router();
 
@@ -78,7 +86,8 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
           [req.params.id, team.team_number]
         )?.c || 0;
 
-        return { ...team, bank, active_spins: activeSpins, completed_count: completedCount };
+        const dd = getActiveDoubleDown(req.params.id, team.team_number);
+        return { ...team, bank, active_spins: activeSpins, completed_count: completedCount, double_down_end: dd?.end_time || null };
       });
 
       const history = db.all(`
@@ -238,6 +247,66 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
 
     broadcast(req.params.id);
     res.json({ ok: true });
+  });
+
+  // Activate Double Down Hour
+  router.post('/events/:id/double-down', upload.single('screenshot'), async (req, res) => {
+    const { team, player_name } = req.body;
+    const cleanup = () => { if (req.file) try { fs.unlinkSync(req.file.path); } catch {} };
+
+    if (!team || !player_name || !req.file) {
+      cleanup();
+      return res.status(400).json({ error: 'team, player_name, and screenshot required' });
+    }
+    const teamNum = parseInt(team);
+
+    const event = db.get('SELECT * FROM events WHERE id = ?', [req.params.id]);
+    if (!event || event.status !== 'active') { cleanup(); return res.status(400).json({ error: 'Event not active' }); }
+
+    const member = db.get(
+      'SELECT id FROM team_members WHERE event_id = ? AND LOWER(player_name) = LOWER(?) AND team = ?',
+      [req.params.id, player_name.trim(), teamNum]
+    );
+    if (!member) { cleanup(); return res.status(400).json({ error: `"${player_name}" is not on the roster for Team ${teamNum}.` }); }
+
+    const existing = getActiveDoubleDown(req.params.id, teamNum);
+    if (existing) { cleanup(); return res.status(400).json({ error: 'Double Down is already active for this team.' }); }
+
+    const config = getConfig(req.params.id);
+    const bank = getBank(req.params.id, teamNum, config.starting_bank);
+    if (bank < 1000) { cleanup(); return res.status(400).json({ error: `Not enough points. Need 1000, have ${bank}.` }); }
+
+    // Verify RSN appears in chatbox via Claude Vision
+    try {
+      const imageData = fs.readFileSync(req.file.path).toString('base64');
+      const response = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 256,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: imageData } },
+          { type: 'text', text: `This is an Old School RuneScape screenshot. In OSRS the player's own username appears in the chatbox area in the bottom-left of the screen. Does the username "${player_name.trim()}" appear in the chatbox in the bottom-left of this image? Reply with exactly "YES" or "NO" followed by a brief explanation.` }
+        ]}]
+      });
+      const answer = response.content[0].text.trim();
+      if (!answer.toUpperCase().startsWith('YES')) {
+        cleanup();
+        return res.status(400).json({ error: `RSN "${player_name}" not found in the chatbox. Make sure your username is visible in the bottom-left.`, detail: answer });
+      }
+    } catch (err) {
+      console.error('Claude vision error:', err.message);
+      cleanup();
+      return res.status(500).json({ error: 'Screenshot verification failed — please try again.' });
+    }
+
+    cleanup();
+    const endTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    db.run('INSERT INTO roulette_bank_log (event_id, team, amount, reason) VALUES (?, ?, ?, ?)',
+      [req.params.id, teamNum, -1000, `Double Down Hour purchased by ${player_name.trim()}`]);
+    db.run('INSERT INTO roulette_double_down (event_id, team, activated_by, end_time) VALUES (?, ?, ?, ?)',
+      [req.params.id, teamNum, player_name.trim(), endTime]);
+
+    broadcast(req.params.id);
+    res.json({ ok: true, end_time: endTime });
   });
 
   return router;

@@ -201,6 +201,23 @@ canvas { border-radius: 50%; display: block; }
 .celeb-player { font-size: 0.88rem; color: #9ab8d8; letter-spacing: 0.04em; }
 .celeb-dismiss { margin-top: 18px; font-size: 0.72rem; color: #445; }
 
+/* Double Down (compact, lives under each roster card) */
+.dd-inline { background: #0d1220; border: 1px solid #1e2a40; border-radius: 6px; padding: 8px 10px; margin-top: 8px; }
+.dd-inline.active { border-color: #c85a1a55; background: linear-gradient(135deg, #160d07, #0d1220); }
+.dd-badge { display: inline-block; background: #c85a1a; color: #fff; font-size: 0.6rem; font-weight: bold; padding: 1px 6px; border-radius: 8px; letter-spacing: 0.08em; }
+.dd-countdown { font-size: 0.9rem; font-weight: bold; color: #e07a3a; margin: 2px 0 1px; }
+.dd-by { font-size: 0.65rem; color: #556; }
+.dd-form { display: flex; flex-direction: column; gap: 5px; }
+.dd-input { background: #0a1428; color: #e0d5b7; border: 1px solid #2a3a54; border-radius: 4px; padding: 5px 8px; font-size: 0.78rem; width: 100%; }
+.dd-input:focus { outline: none; border-color: #c85a1a; }
+.btn-dd { background: #7a3a10; color: #e07a3a; border: 1px solid #c85a1a44; border-radius: 4px; padding: 5px 10px; font-size: 0.72rem; font-weight: bold; cursor: pointer; transition: background 0.15s; }
+.btn-dd:hover { background: #9a4a18; }
+.btn-dd:disabled { background: #2a1a10; color: #5a3a20; cursor: not-allowed; }
+.dd-cost { font-size: 0.62rem; color: #5a4a3a; }
+.dd-status { font-size: 0.68rem; min-height: 1em; }
+.dd-status.error { color: #e05050; }
+.dd-status.success { color: #50c878; }
+
 /* Live Drops Feed */
 .live-drops { margin-top: 24px; }
 .live-drops h2 { color: #c89b3c; font-size: 0.95rem; letter-spacing: 0.04em; margin-bottom: 10px; }
@@ -762,15 +779,59 @@ function renderState() {
     const rows = teamMembers.length
       ? teamMembers.map(m => `<div class="roster-member">${escHtml(m.player_name)}</div>`).join('')
       : '<div class="roster-empty">No players added</div>';
+
+    let ddHtml = '';
+    if (!isEnded) {
+      const ddEnd = team.double_down_end;
+      const ddActive = ddEnd && new Date(ddEnd) > new Date();
+      if (ddActive) {
+        ddHtml = `<div class="dd-inline active" id="dd-card-${team.team_number}">
+          <div class="dd-badge">🔥 DOUBLE DOWN</div>
+          <div class="dd-countdown" id="dd-countdown-${team.team_number}">--:--</div>
+        </div>`;
+      } else {
+        const n = team.team_number;
+        ddHtml = `<div class="dd-inline" id="dd-card-${n}">
+          <div class="dd-form">
+            <div style="font-size:0.68rem;font-weight:bold;color:#e07a3a;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px;">⚡ Double Down <span style="color:#5a3a20;font-weight:normal;">(1,000 pts)</span></div>
+            <input class="dd-input" id="dd-rsn-${n}" list="dd-rsn-list-${n}" placeholder="Your RSN" autocomplete="off">
+            <datalist id="dd-rsn-list-${n}"></datalist>
+            <div style="font-size:0.65rem;color:#556;margin-top:2px;">Verification Screenshot <span style="color:#3a3a4a;font-size:0.6rem;">· RSN must match screenshot</span></div>
+            <input class="dd-input" type="file" id="dd-ss-${n}" accept="image/*" style="font-size:0.68rem;padding:3px 6px;">
+            <div class="dd-cost" style="color:#3a3a4a;font-size:0.6rem;">RSN must be visible in the chatbox (bottom-left)</div>
+            <button class="btn-dd" onclick="doDoubleDown(${n})">⚡ Double Down</button>
+            <div class="dd-cost">1,000 pts · 1 hr · 2× points</div>
+            <div class="dd-status" id="dd-status-${n}"></div>
+          </div>
+        </div>`;
+      }
+    }
+
     return `<div class="roster-card" style="border-top:2px solid ${color};">
       <h3 style="color:${color};">${escHtml(team.team_name)}</h3>
       ${rows}
+      ${ddHtml}
     </div>`;
   }
   const leftTeams = teams.filter(t => t.team_number % 2 === 1);
   const rightTeams = teams.filter(t => t.team_number % 2 === 0);
   document.getElementById('sidebar-left').innerHTML = leftTeams.map(rosterCard).join('');
   document.getElementById('sidebar-right').innerHTML = rightTeams.map(rosterCard).join('');
+
+  // Post-render: start countdowns + populate datalists
+  teams.forEach(t => {
+    const ddEnd = t.double_down_end;
+    if (ddEnd && new Date(ddEnd) > new Date()) {
+      startDDCountdown(t.team_number, ddEnd);
+    } else {
+      clearInterval(_ddIntervals[t.team_number]);
+      const datalist = document.getElementById(`dd-rsn-list-${t.team_number}`);
+      if (datalist) {
+        const teamMembers = (members || []).filter(m => m.team === t.team_number);
+        datalist.innerHTML = teamMembers.map(m => `<option value="${escHtml(m.player_name)}">`).join('');
+      }
+    }
+  });
 
   // Rules
   const rulesEl = document.getElementById('rules-content');
@@ -993,6 +1054,62 @@ function playSuccessChime() {
       osc.stop(t + 0.35);
     });
   } catch {}
+}
+
+// ── Double Down ───────────────────────────────────────────────
+const _ddIntervals = {};
+
+function startDDCountdown(teamNum, endTimeIso) {
+  clearInterval(_ddIntervals[teamNum]);
+  function tick() {
+    const el = document.getElementById(`dd-countdown-${teamNum}`);
+    if (!el) { clearInterval(_ddIntervals[teamNum]); return; }
+    const ms = Math.max(0, new Date(endTimeIso).getTime() - Date.now());
+    if (ms <= 0) {
+      el.textContent = 'Expired';
+      clearInterval(_ddIntervals[teamNum]);
+      loadState();
+      return;
+    }
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    el.textContent = `${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+  }
+  tick();
+  _ddIntervals[teamNum] = setInterval(tick, 1000);
+}
+
+async function doDoubleDown(teamNum) {
+  const rsn = (document.getElementById(`dd-rsn-${teamNum}`)?.value || '').trim();
+  const file = document.getElementById(`dd-ss-${teamNum}`)?.files[0];
+  const statusEl = document.getElementById(`dd-status-${teamNum}`);
+
+  if (!rsn) { if (statusEl) { statusEl.className = 'dd-status error'; statusEl.textContent = 'Enter your RSN.'; } return; }
+  if (!file) { if (statusEl) { statusEl.className = 'dd-status error'; statusEl.textContent = 'Attach a screenshot.'; } return; }
+
+  const btn = document.querySelector(`#dd-card-${teamNum} .btn-dd`);
+  if (btn) btn.disabled = true;
+  if (statusEl) { statusEl.className = 'dd-status'; statusEl.textContent = 'Verifying screenshot…'; }
+
+  const form = new FormData();
+  form.append('team', teamNum);
+  form.append('player_name', rsn);
+  form.append('screenshot', file);
+
+  try {
+    const res = await fetch(`/api/roulette/events/${currentEventId}/double-down`, { method: 'POST', body: form });
+    const data = await res.json();
+    if (data.ok) {
+      if (statusEl) { statusEl.className = 'dd-status success'; statusEl.textContent = 'Double Down activated!'; }
+    } else {
+      if (statusEl) { statusEl.className = 'dd-status error'; statusEl.textContent = data.error || 'Failed.'; }
+      if (btn) btn.disabled = false;
+    }
+  } catch {
+    if (statusEl) { statusEl.className = 'dd-status error'; statusEl.textContent = 'Network error — try again.'; }
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────

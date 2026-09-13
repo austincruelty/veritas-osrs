@@ -348,6 +348,17 @@ module.exports = function makeAdminRouter(broadcast, broadcastTimer) {
   });
 
   // ── Roulette Admin ────────────────────────────────────────
+  router.get('/roulette/events/:id/double-down', (req, res) => {
+    const rows = db.all(`
+      SELECT dd.*, et.team_name
+      FROM roulette_double_down dd
+      LEFT JOIN event_teams et ON et.event_id = dd.event_id AND et.team_number = dd.team
+      WHERE dd.event_id = ?
+      ORDER BY dd.created_at DESC
+    `, [req.params.id]);
+    res.json(rows);
+  });
+
   router.get('/roulette/events/:id/submissions', (req, res) => {
     const subs = db.all(`
       SELECT rs.*, rspin.wheel_tier, rspin.status as spin_status,
@@ -379,12 +390,21 @@ module.exports = function makeAdminRouter(broadcast, broadcastTimer) {
         || { bonus_value: 100 };
       const basePoints = drop?.base_points || 0;
       const bonusPoints = spin && drop && spin.bonus_drop_id === sub.drop_id ? config.bonus_value : 0;
-      const total = basePoints + bonusPoints;
+
+      const nowIso = new Date().toISOString();
+      const dd = db.get(
+        'SELECT * FROM roulette_double_down WHERE event_id = ? AND team = ? AND end_time > ? ORDER BY end_time DESC LIMIT 1',
+        [sub.event_id, sub.team, nowIso]
+      );
+      const multiplier = dd ? 2 : 1;
+      const total = (basePoints + bonusPoints) * multiplier;
+      const ddNote = dd ? ' 🔥×2 Double Down' : '';
+
       db.run('UPDATE roulette_submissions SET status = ?, points_awarded = ?, bonus_points = ? WHERE id = ?',
-        [status, basePoints, bonusPoints, sub.id]);
+        [status, basePoints * multiplier, bonusPoints * multiplier, sub.id]);
       db.run('UPDATE roulette_spins SET status = ? WHERE id = ?', ['completed', sub.spin_id]);
       db.run('INSERT INTO roulette_bank_log (event_id, team, amount, reason) VALUES (?, ?, ?, ?)',
-        [sub.event_id, sub.team, total, `${drop?.item_name || 'Drop'} from boss${bonusPoints ? ` +${bonusPoints} bonus` : ''}`]);
+        [sub.event_id, sub.team, total, `${drop?.item_name || 'Drop'} from boss${bonusPoints ? ` +${bonusPoints} bonus` : ''}${ddNote}`]);
     } else if (status === 'pending' && sub.status === 'approved') {
       // Unapprove: reverse the points and restore the spin to active
       const total = (sub.points_awarded || 0) + (sub.bonus_points || 0);

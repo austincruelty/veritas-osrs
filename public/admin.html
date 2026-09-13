@@ -399,6 +399,17 @@
     </div>
   </section>
 
+  <!-- Double Down History -->
+  <section id="double-down-section" style="display:none">
+    <div class="section-hdr" onclick="toggleSection('double-down-body')">
+      <h2 style="margin:0;">⚡ Double Down Purchases</h2>
+      <span class="section-caret" id="caret-double-down-body">▼</span>
+    </div>
+    <div id="double-down-body">
+      <div id="double-down-content">Loading...</div>
+    </div>
+  </section>
+
   <!-- Boss Manager (roulette events only) -->
   <section id="boss-manager-section" style="display:none">
     <div class="section-hdr" onclick="toggleSection('boss-manager-body')">
@@ -662,6 +673,7 @@ async function selectEvent(ev) {
   document.getElementById('roulette-config-section').style.display = isRoulette ? 'block' : 'none';
   document.getElementById('roulette-banks-section').style.display = isRoulette ? 'block' : 'none';
   document.getElementById('roulette-submissions-section').style.display = isRoulette ? 'block' : 'none';
+  document.getElementById('double-down-section').style.display = isRoulette ? 'block' : 'none';
   document.getElementById('boss-manager-section').style.display = isRoulette ? 'block' : 'none';
 
   document.getElementById('edit-event-name').textContent = ev.name;
@@ -691,11 +703,13 @@ async function selectEvent(ev) {
 
   if (isRoulette) {
     restoreSectionState('roulette-submissions-body');
+    restoreSectionState('double-down-body');
     restoreSectionState('boss-manager-body');
     loadMembers();
     loadRouletteConfig();
     loadRouletteBanks();
     loadRouletteSubmissions();
+    loadDoubleDownHistory();
   } else {
     await loadBoardData();
     initGrid();
@@ -1277,7 +1291,7 @@ async function deleteEvent(id, name) {
       selectedEventId = null;
       selectedEventData = null;
       ['edit-section','roster-section','board-section','submissions-section',
-       'roulette-link-section','roulette-config-section','roulette-banks-section','roulette-submissions-section','boss-manager-section']
+       'roulette-link-section','roulette-config-section','roulette-banks-section','roulette-submissions-section','double-down-section','boss-manager-section']
         .forEach(s => { document.getElementById(s).style.display = 'none'; });
     }
     loadEvents();
@@ -1454,6 +1468,40 @@ async function loadRouletteSubmissions() {
       </table>`;
   } catch (err) {
     document.getElementById('roulette-submissions-content').textContent = 'Failed to load.';
+  }
+}
+
+async function loadDoubleDownHistory() {
+  const el = document.getElementById('double-down-content');
+  try {
+    const res = await adminFetch(`/api/admin/roulette/events/${selectedEventId}/double-down`);
+    const rows = await res.json();
+    if (!rows.length) { el.innerHTML = '<span style="color:#445;font-size:0.85rem;">No Double Down purchases yet.</span>'; return; }
+    el.innerHTML = `
+      <table class="submissions-table">
+        <thead><tr><th>Time</th><th>Team</th><th>RSN</th><th>Activated At</th><th>Expires At</th><th>Status</th></tr></thead>
+        <tbody>${rows.map(r => {
+          const now = new Date();
+          const end = new Date(r.end_time);
+          const isActive = end > now;
+          const msLeft = end - now;
+          const minsLeft = Math.max(0, Math.floor(msLeft / 60000));
+          const statusHtml = isActive
+            ? `<span style="background:#7a3a10;color:#e07a3a;font-size:0.68rem;padding:2px 8px;border-radius:10px;font-weight:bold;">🔥 Active — ${minsLeft}m left</span>`
+            : `<span style="background:#1e2a40;color:#556;font-size:0.68rem;padding:2px 8px;border-radius:10px;">Expired</span>`;
+          return `<tr>
+            <td style="color:#445;white-space:nowrap;">${new Date(r.created_at + 'Z').toLocaleString()}</td>
+            <td style="font-weight:600;">${escHtml(r.team_name || 'Team ' + r.team)}</td>
+            <td>${escHtml(r.activated_by)}</td>
+            <td style="color:#556;font-size:0.78rem;white-space:nowrap;">${new Date(r.created_at + 'Z').toLocaleTimeString()}</td>
+            <td style="color:#556;font-size:0.78rem;white-space:nowrap;">${end.toLocaleTimeString()}</td>
+            <td>${statusHtml}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>`;
+  } catch {
+    el.textContent = 'Failed to load.';
   }
 }
 
