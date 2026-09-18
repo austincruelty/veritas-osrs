@@ -861,11 +861,12 @@ function drawWheel(canvas, bosses, rotation) {
   }
 
   // Assign colors so no two adjacent segments (including first/last) share a color
-  const segColors = bosses.map((_, i) => {
+  const segColors = [];
+  for (let i = 0; i < n; i++) {
     let ci = i % WHEEL_COLORS.length;
     if (i > 0 && WHEEL_COLORS[ci] === segColors[i - 1]) ci = (ci + 1) % WHEEL_COLORS.length;
-    return WHEEL_COLORS[ci];
-  });
+    segColors.push(WHEEL_COLORS[ci]);
+  }
   if (n > 2 && segColors[n - 1] === segColors[0]) {
     let ci = ((n - 1) % WHEEL_COLORS.length + 1) % WHEEL_COLORS.length;
     if (WHEEL_COLORS[ci] === segColors[n - 2]) ci = (ci + 1) % WHEEL_COLORS.length;
