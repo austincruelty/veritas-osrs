@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
 const { db } = require('../database');
 
@@ -113,17 +114,94 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
     } catch (err) { next(err); }
   });
 
+  // ── Player sessions ──────────────────────────────────────────
+
+  // Create or restore session
+  router.post('/events/:id/session', (req, res) => {
+    try {
+      const { session_token } = req.body;
+      if (session_token) {
+        const session = db.get('SELECT * FROM roulette_player_sessions WHERE session_token = ? AND event_id = ?', [session_token, req.params.id]);
+        if (!session) return res.status(404).json({ error: 'Session not found' });
+        const rsns = db.all('SELECT rsn, team FROM roulette_session_rsns WHERE session_token = ? AND event_id = ? ORDER BY id', [session_token, req.params.id]);
+        return res.json({ session_token, rsns });
+      }
+      const token = crypto.randomUUID();
+      db.run('INSERT INTO roulette_player_sessions (session_token, event_id) VALUES (?, ?)', [token, req.params.id]);
+      res.json({ session_token: token, rsns: [] });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Add RSN to session
+  router.post('/events/:id/session/rsn', (req, res) => {
+    try {
+      const { session_token, rsn } = req.body;
+      if (!session_token || !rsn) return res.status(400).json({ error: 'session_token and rsn required' });
+      const trimmed = rsn.trim();
+
+      const session = db.get('SELECT * FROM roulette_player_sessions WHERE session_token = ? AND event_id = ?', [session_token, req.params.id]);
+      if (!session) return res.status(404).json({ error: 'Session not found' });
+
+      const member = db.get(
+        'SELECT team FROM team_members WHERE event_id = ? AND LOWER(player_name) = LOWER(?)',
+        [req.params.id, trimmed]
+      );
+      if (!member) return res.status(400).json({ error: `"${trimmed}" is not on any team's roster for this event.` });
+
+      const existing = db.get(
+        'SELECT session_token FROM roulette_session_rsns WHERE event_id = ? AND LOWER(rsn) = LOWER(?)',
+        [req.params.id, trimmed]
+      );
+      if (existing && existing.session_token !== session_token) {
+        return res.status(409).json({ error: `"${trimmed}" is already registered to another player.` });
+      }
+
+      if (!existing) {
+        db.run('INSERT INTO roulette_session_rsns (session_token, event_id, rsn, team) VALUES (?, ?, ?, ?)',
+          [session_token, req.params.id, trimmed, member.team]);
+      }
+
+      const rsns = db.all('SELECT rsn, team FROM roulette_session_rsns WHERE session_token = ? AND event_id = ? ORDER BY id', [session_token, req.params.id]);
+      res.json({ ok: true, rsns });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Remove RSN from session
+  router.delete('/events/:id/session/rsn', (req, res) => {
+    try {
+      const { session_token, rsn } = req.body;
+      if (!session_token || !rsn) return res.status(400).json({ error: 'session_token and rsn required' });
+
+      const session = db.get('SELECT * FROM roulette_player_sessions WHERE session_token = ? AND event_id = ?', [session_token, req.params.id]);
+      if (!session) return res.status(404).json({ error: 'Session not found' });
+
+      db.run('DELETE FROM roulette_session_rsns WHERE session_token = ? AND event_id = ? AND LOWER(rsn) = LOWER(?)',
+        [session_token, req.params.id, rsn.trim()]);
+
+      const rsns = db.all('SELECT rsn, team FROM roulette_session_rsns WHERE session_token = ? AND event_id = ? ORDER BY id', [session_token, req.params.id]);
+      res.json({ ok: true, rsns });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
   // Spin a wheel
   router.post('/events/:id/spin', (req, res, next) => {
     try {
-      const { team, wheel_tier } = req.body;
+      const { team, wheel_tier, session_token, active_rsn } = req.body;
       if (!team || !wheel_tier) return res.status(400).json({ error: 'team and wheel_tier required' });
+      if (!session_token || !active_rsn) return res.status(403).json({ error: 'Register your RSN to spin.' });
       const teamNum = parseInt(team);
       const tier = parseInt(wheel_tier);
       if (tier !== 1 && tier !== 2) return res.status(400).json({ error: 'wheel_tier must be 1 or 2' });
 
       const event = db.get('SELECT * FROM events WHERE id = ?', [req.params.id]);
       if (!event || event.status !== 'active') return res.status(400).json({ error: 'Event not active' });
+
+      // Verify session owns this RSN and the RSN is on the requested team
+      const sessionRsn = db.get(
+        'SELECT * FROM roulette_session_rsns WHERE session_token = ? AND event_id = ? AND LOWER(rsn) = LOWER(?) AND team = ?',
+        [session_token, req.params.id, active_rsn.trim(), teamNum]
+      );
+      if (!sessionRsn) return res.status(403).json({ error: 'You can only spin for your own team.' });
 
       const validTeam = db.get('SELECT * FROM event_teams WHERE event_id = ? AND team_number = ?', [req.params.id, teamNum]);
       if (!validTeam) return res.status(400).json({ error: 'Invalid team' });

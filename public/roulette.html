@@ -224,6 +224,36 @@ canvas { border-radius: 50%; display: block; }
 .dd-status.error { color: #e05050; }
 .dd-status.success { color: #50c878; }
 
+/* Player bar */
+#player-bar { background: #0a0f1e; border-bottom: 1px solid #1e2a40; padding: 6px 20px; font-size: 0.78rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#player-bar.hidden { display: none !important; }
+.player-bar-label { color: #556; }
+.player-bar-rsn { display: inline-flex; align-items: center; gap: 4px; background: #0f1e3a; border: 1px solid #2a3a54; border-radius: 12px; padding: 2px 10px; color: #c89b3c; font-weight: 600; font-size: 0.75rem; }
+.player-bar-team { color: #4a7fc1; font-size: 0.68rem; font-weight: normal; margin-left: 2px; }
+.btn-bar { background: none; border: 1px solid #2a3a54; border-radius: 4px; color: #9ab8d8; padding: 2px 10px; font-size: 0.72rem; cursor: pointer; transition: border-color 0.15s; }
+.btn-bar:hover { border-color: #c89b3c66; color: #c89b3c; }
+.btn-bar-danger { border-color: #3a2020; color: #887070; }
+.btn-bar-danger:hover { border-color: #e0505088; color: #e05050; }
+
+/* Registration / RSN manager modal */
+#register-modal .modal-box { max-width: 460px; }
+.rsn-tag-list { display: flex; flex-direction: column; gap: 5px; margin: 8px 0 12px; min-height: 4px; }
+.rsn-tag { display: flex; align-items: center; justify-content: space-between; background: #0a0f1e; border: 1px solid #1e2a40; border-radius: 6px; padding: 6px 10px; }
+.rsn-tag-name { font-weight: 600; color: #e0d5b7; font-size: 0.85rem; }
+.rsn-tag-team { font-size: 0.68rem; color: #4a7fc1; margin-left: 6px; }
+.rsn-tag-remove { background: none; border: none; color: #446; font-size: 0.9rem; cursor: pointer; padding: 0 2px; line-height: 1; }
+.rsn-tag-remove:hover { color: #e05050; }
+.reg-add-row { display: flex; gap: 6px; }
+.reg-add-row input { flex: 1; }
+.reg-status { font-size: 0.8rem; min-height: 1.2em; margin: 6px 0; }
+.reg-status.error { color: #e05050; }
+.reg-status.success { color: #50c878; }
+
+/* Spin RSN selector */
+.spin-rsn-row { display: flex; gap: 8px; align-items: center; }
+.spin-rsn-row select { flex: 1; background: #0f1e3a; color: #e0d5b7; border: 1px solid #2a3a54; border-radius: 4px; padding: 7px 10px; font-size: 0.85rem; }
+.spin-team-tag { font-size: 0.72rem; color: #4a7fc1; white-space: nowrap; }
+
 /* Live Drops Feed */
 .live-drops { margin-top: 24px; }
 .live-drops h2 { color: #c89b3c; font-size: 0.95rem; letter-spacing: 0.04em; margin-bottom: 10px; }
@@ -255,6 +285,33 @@ canvas { border-radius: 50%; display: block; }
     <a href="/admin.html" class="admin-link">Admin</a>
   </div>
 </header>
+
+<!-- Player bar (shown after registration) -->
+<div id="player-bar" class="hidden">
+  <span class="player-bar-label">Playing as:</span>
+  <div id="player-bar-rsns" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+  <button class="btn-bar" onclick="openManageRSNs()">+ Manage RSNs</button>
+  <button class="btn-bar btn-bar-danger" onclick="clearSession()">Switch account</button>
+</div>
+
+<!-- Registration / Manage RSNs modal -->
+<div class="modal-bg" id="register-modal">
+  <div class="modal-box">
+    <h3 id="register-modal-title">Who are you?</h3>
+    <p style="color:#556;font-size:0.8rem;margin-bottom:14px;">Enter your RSN(s). Your name must be on the team roster.</p>
+    <div class="reg-add-row form-group">
+      <input type="text" id="reg-rsn-input" list="reg-rsn-datalist" placeholder="Your in-game name" autocomplete="off" onkeydown="if(event.key==='Enter')regAddRSN()">
+      <datalist id="reg-rsn-datalist"></datalist>
+      <button class="btn btn-gold" onclick="regAddRSN()">Add</button>
+    </div>
+    <div class="rsn-tag-list" id="reg-rsn-tags"></div>
+    <div class="reg-status" id="reg-status"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" id="reg-cancel-btn" onclick="closeRegisterModal()" style="display:none;">Cancel</button>
+      <button class="btn btn-gold" id="reg-play-btn" onclick="regSubmit()" disabled>Let's Play!</button>
+    </div>
+  </div>
+</div>
 
 <div id="landing" class="landing">
   <div class="landing-box">
@@ -301,11 +358,12 @@ canvas { border-radius: 50%; display: block; }
               <canvas id="wheel1" width="280" height="280"></canvas>
             </div>
             <div class="spin-controls">
-              <div class="spin-team-row">
-                <select id="spin1-team"><option value="">Select team...</option></select>
+              <div class="spin-rsn-row">
+                <select id="spin1-rsn"><option value="">Register your RSN to spin</option></select>
+                <span class="spin-team-tag" id="spin1-team-tag"></span>
               </div>
               <button class="btn btn-spin" id="btn-spin1" onclick="doSpin(1)">🎲 Spin Wheel 1</button>
-              <div class="spin-result" id="spin1-result">Select your team and spin!</div>
+              <div class="spin-result" id="spin1-result">Register your RSN to spin!</div>
             </div>
           </div>
 
@@ -316,11 +374,12 @@ canvas { border-radius: 50%; display: block; }
               <canvas id="wheel2" width="280" height="280"></canvas>
             </div>
             <div class="spin-controls">
-              <div class="spin-team-row">
-                <select id="spin2-team"><option value="">Select team...</option></select>
+              <div class="spin-rsn-row">
+                <select id="spin2-rsn"><option value="">Register your RSN to spin</option></select>
+                <span class="spin-team-tag" id="spin2-team-tag"></span>
               </div>
               <button class="btn btn-spin" id="btn-spin2" onclick="doSpin(2)">🎲 Spin Wheel 2</button>
-              <div class="spin-result" id="spin2-result">Select your team and spin!</div>
+              <div class="spin-result" id="spin2-result">Register your RSN to spin!</div>
             </div>
           </div>
         </div>
@@ -583,6 +642,7 @@ async function selectEvent(id) {
   await loadBosses();
   await loadState();
   loadTimer(id);
+  await initSession();
 }
 
 // ── Bosses ───────────────────────────────────────────────────
@@ -697,11 +757,8 @@ function renderState() {
     endedBanner.remove();
   }
 
-  // Team selectors
-  const teamOpts = '<option value="">Select team...</option>' +
-    teams.map(t => `<option value="${t.team_number}">${escHtml(t.team_name)}</option>`).join('');
-  document.getElementById('spin1-team').innerHTML = teamOpts;
-  document.getElementById('spin2-team').innerHTML = teamOpts;
+  // Update spin RSN selectors based on current session + state
+  updateSpinControls();
 
   // Banks
   document.getElementById('banks-row').innerHTML = teams.map(t => {
@@ -854,6 +911,9 @@ function renderState() {
   } else {
     rulesEl.innerHTML = '<p style="color:#445;">No rules set for this event.</p>';
   }
+
+  // Refresh player bar team names (in case state reloaded after session init)
+  renderPlayerBar();
 }
 
 // ── Wheel drawing ─────────────────────────────────────────────
@@ -916,9 +976,18 @@ async function doSpin(tier) {
   if (tier === 1 && spinning1) return;
   if (tier === 2 && spinning2) return;
 
-  const teamEl = document.getElementById(`spin${tier}-team`);
-  const teamNum = teamEl.value;
-  if (!teamNum) { alert('Select your team first.'); return; }
+  if (!playerSession || !playerSession.rsns.length) {
+    showRegisterModal();
+    return;
+  }
+
+  const rsnSel = document.getElementById(`spin${tier}-rsn`);
+  const selectedRsn = rsnSel?.value;
+  if (!selectedRsn) { alert('Select your account first.'); return; }
+
+  const rsnData = playerSession.rsns.find(r => r.rsn === selectedRsn);
+  if (!rsnData) { alert('Invalid selection — please re-register.'); return; }
+  const teamNum = rsnData.team;
 
   const btn = document.getElementById(`btn-spin${tier}`);
   const resultEl = document.getElementById(`spin${tier}-result`);
@@ -928,7 +997,7 @@ async function doSpin(tier) {
     const res = await fetch(`/api/roulette/events/${currentEventId}/spin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ team: teamNum, wheel_tier: tier, socket_id: socket.id })
+      body: JSON.stringify({ team: teamNum, wheel_tier: tier, socket_id: socket.id, session_token: playerSession.session_token, active_rsn: selectedRsn })
     });
     const data = await res.json();
     if (!res.ok) { resultEl.innerHTML = `<span style="color:#e05050;">${escHtml(data.error)}</span>`; btn.disabled = false; return; }
@@ -1081,6 +1150,197 @@ function playSuccessChime() {
       osc.stop(t + 0.35);
     });
   } catch {}
+}
+
+// ── Player session ────────────────────────────────────────────
+let playerSession = null; // { session_token, rsns: [{rsn, team}] }
+
+function sessionKey() { return `roulette_session_${currentEventId}`; }
+
+async function initSession() {
+  const stored = (() => { try { return JSON.parse(localStorage.getItem(sessionKey())); } catch { return null; } })();
+  if (stored?.session_token) {
+    try {
+      const res = await fetch(`/api/roulette/events/${currentEventId}/session`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_token: stored.session_token })
+      });
+      if (res.ok) {
+        playerSession = await res.json();
+        renderPlayerBar();
+        updateSpinControls();
+        return;
+      }
+    } catch {}
+  }
+  // No valid stored session — show registration
+  showRegisterModal();
+}
+
+function saveSession() {
+  try { localStorage.setItem(sessionKey(), JSON.stringify({ session_token: playerSession?.session_token })); } catch {}
+}
+
+function clearSession() {
+  playerSession = null;
+  try { localStorage.removeItem(sessionKey()); } catch {}
+  renderPlayerBar();
+  updateSpinControls();
+  showRegisterModal();
+}
+
+function renderPlayerBar() {
+  const bar = document.getElementById('player-bar');
+  const rsnsEl = document.getElementById('player-bar-rsns');
+  if (!playerSession || !playerSession.rsns.length) {
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+  rsnsEl.innerHTML = playerSession.rsns.map(r => {
+    const teamName = currentState?.teams?.find(t => t.team_number === r.team)?.team_name || `Team ${r.team}`;
+    return `<span class="player-bar-rsn">${escHtml(r.rsn)}<span class="player-bar-team">${escHtml(teamName)}</span></span>`;
+  }).join('');
+}
+
+function updateSpinControls() {
+  [1, 2].forEach(tier => {
+    const sel = document.getElementById(`spin${tier}-rsn`);
+    const tag = document.getElementById(`spin${tier}-team-tag`);
+    if (!sel) return;
+    const prev = sel.value;
+    if (!playerSession || !playerSession.rsns.length) {
+      sel.innerHTML = '<option value="">Register your RSN to spin</option>';
+      if (tag) tag.textContent = '';
+      return;
+    }
+    sel.innerHTML = '<option value="">Select your account...</option>' +
+      playerSession.rsns.map(r => {
+        const teamName = currentState?.teams?.find(t => t.team_number === r.team)?.team_name || `Team ${r.team}`;
+        return `<option value="${escHtml(r.rsn)}">${escHtml(r.rsn)} · ${escHtml(teamName)}</option>`;
+      }).join('');
+    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+    else if (playerSession.rsns.length === 1) sel.value = playerSession.rsns[0].rsn;
+    const chosen = playerSession.rsns.find(r => r.rsn === sel.value);
+    if (tag) tag.textContent = chosen ? (currentState?.teams?.find(t => t.team_number === chosen.team)?.team_name || `Team ${chosen.team}`) : '';
+    sel.onchange = () => {
+      const c = playerSession?.rsns?.find(r => r.rsn === sel.value);
+      if (tag) tag.textContent = c ? (currentState?.teams?.find(t => t.team_number === c.team)?.team_name || `Team ${c.team}`) : '';
+    };
+  });
+}
+
+// ── Registration modal ────────────────────────────────────────
+let _regSession = null; // temp session being built
+let _regManaging = false;
+
+function showRegisterModal() {
+  _regManaging = false;
+  document.getElementById('register-modal-title').textContent = 'Who are you?';
+  document.getElementById('reg-cancel-btn').style.display = 'none';
+  document.getElementById('reg-status').textContent = '';
+  _regSession = playerSession ? { ...playerSession, rsns: [...playerSession.rsns] } : null;
+  _renderRegTags();
+  _populateRegDatalist();
+  document.getElementById('register-modal').classList.add('open');
+}
+
+function openManageRSNs() {
+  _regManaging = true;
+  document.getElementById('register-modal-title').textContent = 'Manage RSNs';
+  document.getElementById('reg-cancel-btn').style.display = '';
+  document.getElementById('reg-status').textContent = '';
+  _regSession = playerSession ? { ...playerSession, rsns: [...playerSession.rsns] } : null;
+  _renderRegTags();
+  _populateRegDatalist();
+  document.getElementById('register-modal').classList.add('open');
+}
+
+function closeRegisterModal() {
+  document.getElementById('register-modal').classList.remove('open');
+  document.getElementById('reg-rsn-input').value = '';
+}
+
+function _populateRegDatalist() {
+  const dl = document.getElementById('reg-rsn-datalist');
+  const registered = new Set((_regSession?.rsns || []).map(r => r.rsn.toLowerCase()));
+  const all = (currentState?.members || []).filter(m => !registered.has(m.player_name.toLowerCase()));
+  dl.innerHTML = all.map(m => `<option value="${escHtml(m.player_name)}">`).join('');
+}
+
+function _renderRegTags() {
+  const list = document.getElementById('reg-rsn-tags');
+  const rsns = _regSession?.rsns || [];
+  if (!rsns.length) { list.innerHTML = '<div style="color:#445;font-size:0.78rem;padding:4px 0;">No RSNs added yet.</div>'; }
+  else {
+    list.innerHTML = rsns.map(r => {
+      const teamName = currentState?.teams?.find(t => t.team_number === r.team)?.team_name || `Team ${r.team}`;
+      return `<div class="rsn-tag">
+        <span><span class="rsn-tag-name">${escHtml(r.rsn)}</span><span class="rsn-tag-team">${escHtml(teamName)}</span></span>
+        <button class="rsn-tag-remove" onclick="regRemoveRSN('${escHtml(r.rsn)}')" title="Remove">✕</button>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('reg-play-btn').disabled = rsns.length === 0;
+}
+
+async function regAddRSN() {
+  const input = document.getElementById('reg-rsn-input');
+  const rsn = input.value.trim();
+  if (!rsn) return;
+  const statusEl = document.getElementById('reg-status');
+  statusEl.className = 'reg-status'; statusEl.textContent = 'Checking…';
+
+  // Ensure we have a session token to work with
+  if (!_regSession) {
+    try {
+      const r = await fetch(`/api/roulette/events/${currentEventId}/session`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      });
+      if (!r.ok) { statusEl.className = 'reg-status error'; statusEl.textContent = 'Server error — try again.'; return; }
+      _regSession = await r.json();
+    } catch { statusEl.className = 'reg-status error'; statusEl.textContent = 'Network error — try again.'; return; }
+  }
+
+  try {
+    const res = await fetch(`/api/roulette/events/${currentEventId}/session/rsn`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_token: _regSession.session_token, rsn })
+    });
+    const data = await res.json();
+    if (!res.ok) { statusEl.className = 'reg-status error'; statusEl.textContent = data.error; return; }
+    _regSession.rsns = data.rsns;
+    input.value = '';
+    statusEl.className = 'reg-status success'; statusEl.textContent = `Added ${rsn}!`;
+    _renderRegTags();
+    _populateRegDatalist();
+  } catch { statusEl.className = 'reg-status error'; statusEl.textContent = 'Network error — try again.'; }
+}
+
+async function regRemoveRSN(rsn) {
+  if (!_regSession) return;
+  try {
+    const res = await fetch(`/api/roulette/events/${currentEventId}/session/rsn`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_token: _regSession.session_token, rsn })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      _regSession.rsns = data.rsns;
+      _renderRegTags();
+      _populateRegDatalist();
+      document.getElementById('reg-status').textContent = '';
+    }
+  } catch {}
+}
+
+async function regSubmit() {
+  if (!_regSession || !_regSession.rsns.length) return;
+  playerSession = _regSession;
+  saveSession();
+  closeRegisterModal();
+  renderPlayerBar();
+  updateSpinControls();
 }
 
 // ── Double Down ───────────────────────────────────────────────
