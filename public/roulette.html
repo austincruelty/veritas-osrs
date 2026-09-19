@@ -5,13 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Veritas Roulette</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #0d0f1a; color: #e0d5b7; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
 body::before { content: ''; position: fixed; inset: 0; background: url('/osrs-map.png') center/cover no-repeat; filter: blur(3px) brightness(0.35); opacity: 0.28; z-index: -1; transform: scale(1.04); pointer-events: none; }
 
 header { background: #111827; border-bottom: 2px solid #c89b3c; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
-header h1 { color: #c89b3c; font-size: 1.2rem; letter-spacing: 0.05em; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand img { width: 52px; height: 52px; object-fit: contain; }
+.brand-text { display: flex; flex-direction: column; }
+.brand-title { font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: 700; background: linear-gradient(135deg, #c89b3c 0%, #e8c96a 50%, #c89b3c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 0.05em; line-height: 1.1; }
+.brand-sub { font-size: 0.65rem; color: #ffffff; letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.5; }
 .admin-link { color: #ffffff; font-size: 0.85rem; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; background: none; border: none; padding: 0; cursor: pointer; }
 .admin-link:hover { opacity: 1; }
 
@@ -237,7 +243,13 @@ canvas { border-radius: 50%; display: block; }
 </head>
 <body>
 <header>
-  <h1>🎰 Veritas Roulette</h1>
+  <div class="brand">
+    <img src="/veritas-logo.png" alt="Veritas">
+    <div class="brand-text">
+      <span class="brand-title">Veritas</span>
+      <span class="brand-sub">Old School RuneScape</span>
+    </div>
+  </div>
   <div style="display:flex;gap:16px;align-items:center;">
     <a href="/" class="admin-link">🏠 Home</a>
     <a href="/admin.html" class="admin-link">Admin</a>
