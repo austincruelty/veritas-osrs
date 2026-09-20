@@ -153,7 +153,12 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
         [req.params.id, trimmed]
       );
       if (existing && existing.session_token !== session_token) {
-        return res.status(409).json({ error: `"${trimmed}" is already registered to another player.` });
+        // Check if the owning session still exists — if not, it's an orphaned claim, free it
+        const ownerStillExists = db.get('SELECT 1 FROM roulette_player_sessions WHERE session_token = ?', [existing.session_token]);
+        if (ownerStillExists) {
+          return res.status(409).json({ error: `"${trimmed}" is already registered to another player.` });
+        }
+        db.run('DELETE FROM roulette_session_rsns WHERE session_token = ? AND event_id = ?', [existing.session_token, req.params.id]);
       }
 
       if (!existing) {
