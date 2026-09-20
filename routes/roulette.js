@@ -153,15 +153,13 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
         [req.params.id, trimmed]
       );
       if (existing && existing.session_token !== session_token) {
-        // Check if the owning session still exists — if not, it's an orphaned claim, free it
-        const ownerStillExists = db.get('SELECT 1 FROM roulette_player_sessions WHERE session_token = ?', [existing.session_token]);
-        if (ownerStillExists) {
-          return res.status(409).json({ error: `"${trimmed}" is already registered to another player.` });
-        }
-        db.run('DELETE FROM roulette_session_rsns WHERE session_token = ? AND event_id = ?', [existing.session_token, req.params.id]);
-      }
-
-      if (!existing) {
+        // Transfer the claim to the new session (handles abandoned sessions where
+        // the old localStorage token is gone but the DB row remains)
+        db.run('DELETE FROM roulette_session_rsns WHERE event_id = ? AND LOWER(rsn) = LOWER(?)',
+          [req.params.id, trimmed]);
+        db.run('INSERT INTO roulette_session_rsns (session_token, event_id, rsn, team) VALUES (?, ?, ?, ?)',
+          [session_token, req.params.id, trimmed, member.team]);
+      } else if (!existing) {
         db.run('INSERT INTO roulette_session_rsns (session_token, event_id, rsn, team) VALUES (?, ?, ?, ?)',
           [session_token, req.params.id, trimmed, member.team]);
       }
