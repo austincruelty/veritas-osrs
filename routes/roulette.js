@@ -166,6 +166,17 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
+  // Delete entire session (frees all claimed RSNs)
+  router.delete('/events/:id/session', (req, res) => {
+    try {
+      const { session_token } = req.body;
+      if (!session_token) return res.status(400).json({ error: 'session_token required' });
+      db.run('DELETE FROM roulette_session_rsns WHERE session_token = ? AND event_id = ?', [session_token, req.params.id]);
+      db.run('DELETE FROM roulette_player_sessions WHERE session_token = ? AND event_id = ?', [session_token, req.params.id]);
+      res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
   // Remove RSN from session
   router.delete('/events/:id/session/rsn', (req, res) => {
     try {

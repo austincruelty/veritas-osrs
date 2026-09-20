@@ -296,7 +296,8 @@ canvas { border-radius: 50%; display: block; }
 
 <!-- Registration / Manage RSNs modal -->
 <div class="modal-bg" id="register-modal">
-  <div class="modal-box">
+  <div class="modal-box" style="position:relative;">
+    <button onclick="closeRegisterModal()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:#556;font-size:1.2rem;cursor:pointer;line-height:1;padding:2px 6px;" title="Close">✕</button>
     <h3 id="register-modal-title">Who are you?</h3>
     <p style="color:#556;font-size:0.8rem;margin-bottom:14px;">Enter your RSN(s). Your name must be on the team roster.</p>
     <div class="reg-add-row form-group">
@@ -1181,7 +1182,15 @@ function saveSession() {
   try { localStorage.setItem(sessionKey(), JSON.stringify({ session_token: playerSession?.session_token })); } catch {}
 }
 
-function clearSession() {
+async function clearSession() {
+  if (playerSession?.session_token) {
+    try {
+      await fetch(`/api/roulette/events/${currentEventId}/session`, {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_token: playerSession.session_token })
+      });
+    } catch {}
+  }
   playerSession = null;
   try { localStorage.removeItem(sessionKey()); } catch {}
   renderPlayerBar();
