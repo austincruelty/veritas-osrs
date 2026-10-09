@@ -232,9 +232,11 @@ async function init() {
     boss_id INTEGER NOT NULL REFERENCES roulette_bosses(id),
     bonus_drop_id INTEGER REFERENCES roulette_boss_drops(id),
     spin_cost INTEGER NOT NULL DEFAULT 0,
+    spun_by TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
+  try { _db.run('ALTER TABLE roulette_spins ADD COLUMN spun_by TEXT'); } catch {}
 
   _db.run(`CREATE TABLE IF NOT EXISTS roulette_submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

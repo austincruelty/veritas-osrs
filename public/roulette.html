@@ -403,7 +403,7 @@ canvas { border-radius: 50%; display: block; }
         <div class="history">
           <div style="overflow-x:auto;">
             <table class="history-table">
-              <thead><tr><th>Time</th><th>Team</th><th>RSN</th><th>Wheel</th><th>Boss</th><th>Bonus Drop</th><th>Status</th><th>Points</th></tr></thead>
+              <thead><tr><th>Time</th><th>Team</th><th>Spun by</th><th>RSN</th><th>Wheel</th><th>Boss</th><th>Bonus Drop</th><th>Status</th><th>Points</th></tr></thead>
               <tbody id="history-body"></tbody>
             </table>
           </div>
@@ -811,6 +811,7 @@ function renderState() {
     return `<tr>
       <td style="color:#445;white-space:nowrap;">${timeAgo(h.created_at)}</td>
       <td style="color:${color};font-weight:600;">${escHtml(h.team_name)}</td>
+      <td style="color:#c89b3c;">${h.spun_by ? escHtml(h.spun_by) : '—'}</td>
       <td style="color:#8899aa;">${h.player_name ? escHtml(h.player_name) : '—'}</td>
       <td style="color:#4a7fc1;">W${h.wheel_tier}</td>
       <td>${escHtml(h.boss_name)}</td>

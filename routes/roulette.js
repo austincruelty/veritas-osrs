@@ -93,6 +93,7 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
 
       const history = db.all(`
         SELECT rs.id, rs.team, rs.wheel_tier, rs.spin_cost, rs.status, rs.created_at,
+               rs.spun_by,
                rb.boss_name, rbd.item_name as bonus_item, rbd.base_points as bonus_pts,
                et.team_name,
                rsub.status as sub_status, rsub.points_awarded, rsub.bonus_points,
@@ -247,8 +248,8 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
       const bonusDrop = drops.length ? drops[Math.floor(Math.random() * drops.length)] : null;
 
       const result = db.run(
-        'INSERT INTO roulette_spins (event_id, team, wheel_tier, boss_id, bonus_drop_id, spin_cost) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.params.id, teamNum, tier, boss.id, bonusDrop?.id || null, spinCost]
+        'INSERT INTO roulette_spins (event_id, team, wheel_tier, boss_id, bonus_drop_id, spin_cost, spun_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.params.id, teamNum, tier, boss.id, bonusDrop?.id || null, spinCost, active_rsn?.trim() || null]
       );
 
       const bossIndex = bosses.findIndex(b => b.id === boss.id);
