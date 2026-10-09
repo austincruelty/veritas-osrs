@@ -386,6 +386,11 @@
         <span id="rl-adj-status" class="save-notice"></span>
       </div>
     </div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid #1e2a40;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button class="btn" style="background:#3a1010;color:#e05050;border:1px solid #5a2020;" onclick="resetBanks()">🔄 Reset All Banks</button>
+      <button class="btn" style="background:#0f1e3a;color:#9ab8d8;border:1px solid #2a3a54;" onclick="clearActiveSpins()">🎲 Clear Active Spins</button>
+      <span id="rl-reset-status" class="save-notice"></span>
+    </div>
   </section>
 
   <!-- Roulette Submissions -->
@@ -1433,6 +1438,35 @@ async function doBankAdjust() {
     }
     setTimeout(() => { statusEl.textContent = ''; }, 2500);
   } catch { statusEl.style.color='#e05050'; statusEl.textContent='Network error.'; }
+}
+
+async function resetBanks() {
+  if (!selectedEventId) return;
+  if (!confirm('Reset ALL team banks to the starting amount? This clears the entire bank log and cannot be undone.')) return;
+  const statusEl = document.getElementById('rl-reset-status');
+  try {
+    const res = await adminFetch(`/api/admin/roulette/events/${selectedEventId}/reset-banks`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      statusEl.style.color = '#50c878'; statusEl.textContent = 'Banks reset!';
+      loadRouletteBanks();
+    } else { statusEl.style.color = '#e05050'; statusEl.textContent = data.error || 'Failed.'; }
+  } catch { statusEl.style.color = '#e05050'; statusEl.textContent = 'Network error.'; }
+  setTimeout(() => { statusEl.textContent = ''; }, 3000);
+}
+
+async function clearActiveSpins() {
+  if (!selectedEventId) return;
+  if (!confirm('Abandon all active spins? Teams will be able to spin their next boss for free.')) return;
+  const statusEl = document.getElementById('rl-reset-status');
+  try {
+    const res = await adminFetch(`/api/admin/roulette/events/${selectedEventId}/clear-spins`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      statusEl.style.color = '#50c878'; statusEl.textContent = `${data.cleared} spin(s) cleared!`;
+    } else { statusEl.style.color = '#e05050'; statusEl.textContent = data.error || 'Failed.'; }
+  } catch { statusEl.style.color = '#e05050'; statusEl.textContent = 'Network error.'; }
+  setTimeout(() => { statusEl.textContent = ''; }, 3000);
 }
 
 async function loadRouletteSubmissions() {

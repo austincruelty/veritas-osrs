@@ -430,6 +430,19 @@ module.exports = function makeAdminRouter(broadcast, broadcastTimer) {
     res.json({ ok: true });
   });
 
+  router.post('/roulette/events/:id/reset-banks', (req, res) => {
+    db.run('DELETE FROM roulette_bank_log WHERE event_id = ?', [req.params.id]);
+    broadcast(req.params.id);
+    res.json({ ok: true });
+  });
+
+  router.post('/roulette/events/:id/clear-spins', (req, res) => {
+    const before = db.get("SELECT COUNT(*) as c FROM roulette_spins WHERE event_id = ? AND status = 'active'", [req.params.id])?.c || 0;
+    db.run("UPDATE roulette_spins SET status = 'abandoned' WHERE event_id = ? AND status = 'active'", [req.params.id]);
+    broadcast(req.params.id);
+    res.json({ ok: true, cleared: before });
+  });
+
   router.patch('/roulette/events/:id/config', (req, res) => {
     const { starting_bank, respin_cost, bonus_value } = req.body;
     const existing = db.get('SELECT id FROM roulette_event_config WHERE event_id = ?', [req.params.id]);
