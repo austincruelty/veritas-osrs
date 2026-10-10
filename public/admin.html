@@ -549,7 +549,8 @@ let adminPassword = localStorage.getItem('adminPassword') || '';
 // ── Auth ─────────────────────────────────────────────────
 
 function adminFetch(url, opts = {}) {
-  opts.headers = { ...(opts.headers || {}), 'x-admin-password': adminPassword };
+  const contentType = opts.body ? { 'Content-Type': 'application/json' } : {};
+  opts.headers = { ...contentType, ...(opts.headers || {}), 'x-admin-password': adminPassword };
   return fetch(url, opts);
 }
 
