@@ -404,6 +404,40 @@
     </div>
   </section>
 
+  <!-- Manual Spin Override -->
+  <section id="manual-spin-section" style="display:none">
+    <div class="section-hdr" onclick="toggleSection('manual-spin-body')">
+      <h2 style="margin:0;">🎯 Manual Spin Override</h2>
+      <span class="section-caret" id="caret-manual-spin-body">▼</span>
+    </div>
+    <div id="manual-spin-body">
+      <p style="color:#556;font-size:0.8rem;margin-bottom:14px;">Manually assign a specific boss and bonus drop to a team instead of spinning randomly.</p>
+      <div class="form-row" style="gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label style="font-size:0.72rem;color:#556;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Team</label>
+          <select id="ms-team" style="background:#0a1020;color:#d4cbb8;border:1px solid #1e2a40;border-radius:4px;padding:8px 10px;font-size:0.85rem;"></select>
+        </div>
+        <div>
+          <label style="font-size:0.72rem;color:#556;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Wheel</label>
+          <select id="ms-tier" onchange="loadManualBosses()" style="background:#0a1020;color:#d4cbb8;border:1px solid #1e2a40;border-radius:4px;padding:8px 10px;font-size:0.85rem;">
+            <option value="1">Wheel 1 — High Tier</option>
+            <option value="2">Wheel 2 — Mid Tier</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:0.72rem;color:#556;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Boss</label>
+          <select id="ms-boss" onchange="loadManualDrops()" style="background:#0a1020;color:#d4cbb8;border:1px solid #1e2a40;border-radius:4px;padding:8px 10px;font-size:0.85rem;min-width:180px;"></select>
+        </div>
+        <div>
+          <label style="font-size:0.72rem;color:#556;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Bonus Drop</label>
+          <select id="ms-drop" style="background:#0a1020;color:#d4cbb8;border:1px solid #1e2a40;border-radius:4px;padding:8px 10px;font-size:0.85rem;min-width:180px;"></select>
+        </div>
+        <button class="btn btn-blue" onclick="doManualSpin()">🎯 Assign Boss</button>
+        <span id="ms-status" class="save-notice"></span>
+      </div>
+    </div>
+  </section>
+
   <!-- Double Down History -->
   <section id="double-down-section" style="display:none">
     <div class="section-hdr" onclick="toggleSection('double-down-body')">
@@ -678,6 +712,7 @@ async function selectEvent(ev) {
   document.getElementById('roulette-config-section').style.display = isRoulette ? 'block' : 'none';
   document.getElementById('roulette-banks-section').style.display = isRoulette ? 'block' : 'none';
   document.getElementById('roulette-submissions-section').style.display = isRoulette ? 'block' : 'none';
+  document.getElementById('manual-spin-section').style.display = isRoulette ? 'block' : 'none';
   document.getElementById('double-down-section').style.display = isRoulette ? 'block' : 'none';
   document.getElementById('boss-manager-section').style.display = isRoulette ? 'block' : 'none';
 
@@ -708,6 +743,7 @@ async function selectEvent(ev) {
 
   if (isRoulette) {
     restoreSectionState('roulette-submissions-body');
+    restoreSectionState('manual-spin-body');
     restoreSectionState('double-down-body');
     restoreSectionState('boss-manager-body');
     loadMembers();
@@ -715,6 +751,7 @@ async function selectEvent(ev) {
     loadRouletteBanks();
     loadRouletteSubmissions();
     loadDoubleDownHistory();
+    initManualSpin();
   } else {
     await loadBoardData();
     initGrid();
@@ -1296,7 +1333,7 @@ async function deleteEvent(id, name) {
       selectedEventId = null;
       selectedEventData = null;
       ['edit-section','roster-section','board-section','submissions-section',
-       'roulette-link-section','roulette-config-section','roulette-banks-section','roulette-submissions-section','double-down-section','boss-manager-section']
+       'roulette-link-section','roulette-config-section','roulette-banks-section','roulette-submissions-section','manual-spin-section','double-down-section','boss-manager-section']
         .forEach(s => { document.getElementById(s).style.display = 'none'; });
     }
     loadEvents();
@@ -1438,6 +1475,67 @@ async function doBankAdjust() {
     }
     setTimeout(() => { statusEl.textContent = ''; }, 2500);
   } catch { statusEl.style.color='#e05050'; statusEl.textContent='Network error.'; }
+}
+
+// ── Manual Spin ───────────────────────────────────────────────
+let _adminBosses = [];
+
+async function initManualSpin() {
+  // Populate team selector
+  const teamSel = document.getElementById('ms-team');
+  const teams = (selectedEventData?.teams || []);
+  // Fetch teams fresh from state if not on selectedEventData
+  try {
+    const res = await adminFetch(`/api/roulette/events/${selectedEventId}/state`);
+    if (res.ok) {
+      const data = await res.json();
+      teamSel.innerHTML = data.teams.map(t => `<option value="${t.team_number}">${escHtml(t.team_name)}</option>`).join('');
+    }
+  } catch {}
+
+  // Load bosses
+  try {
+    const res = await fetch('/api/roulette/bosses');
+    _adminBosses = await res.json();
+  } catch {}
+  loadManualBosses();
+}
+
+function loadManualBosses() {
+  const tier = parseInt(document.getElementById('ms-tier').value);
+  const bossSel = document.getElementById('ms-boss');
+  const filtered = _adminBosses.filter(b => b.wheel_tier === tier);
+  bossSel.innerHTML = filtered.map(b => `<option value="${b.id}">${escHtml(b.boss_name)}</option>`).join('');
+  loadManualDrops();
+}
+
+function loadManualDrops() {
+  const bossId = parseInt(document.getElementById('ms-boss').value);
+  const boss = _adminBosses.find(b => b.id === bossId);
+  const dropSel = document.getElementById('ms-drop');
+  dropSel.innerHTML = '<option value="">— No bonus drop —</option>' +
+    (boss?.drops || []).map(d => `<option value="${d.id}">${escHtml(d.item_name)} (${d.base_points} pts)</option>`).join('');
+}
+
+async function doManualSpin() {
+  const team = document.getElementById('ms-team').value;
+  const tier = document.getElementById('ms-tier').value;
+  const bossId = document.getElementById('ms-boss').value;
+  const dropId = document.getElementById('ms-drop').value;
+  const statusEl = document.getElementById('ms-status');
+  if (!team || !bossId) { statusEl.style.color='#e05050'; statusEl.textContent='Select a team and boss.'; return; }
+  try {
+    const res = await adminFetch(`/api/admin/roulette/events/${selectedEventId}/manual-spin`, {
+      method: 'POST',
+      body: JSON.stringify({ team, wheel_tier: tier, boss_id: bossId, bonus_drop_id: dropId || null })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      statusEl.style.color='#50c878'; statusEl.textContent=`Assigned ${data.boss_name} to ${data.team_name}!`;
+      loadRouletteBanks();
+    } else { statusEl.style.color='#e05050'; statusEl.textContent=data.error || 'Failed.'; }
+  } catch { statusEl.style.color='#e05050'; statusEl.textContent='Network error.'; }
+  setTimeout(() => { statusEl.textContent=''; }, 3000);
 }
 
 async function resetBanks() {

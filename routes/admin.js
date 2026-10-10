@@ -430,6 +430,38 @@ module.exports = function makeAdminRouter(broadcast, broadcastTimer) {
     res.json({ ok: true });
   });
 
+  router.post('/roulette/events/:id/manual-spin', (req, res) => {
+    try {
+      const { team, wheel_tier, boss_id, bonus_drop_id } = req.body;
+      if (!team || !wheel_tier || !boss_id) return res.status(400).json({ error: 'team, wheel_tier, boss_id required' });
+      const teamNum = parseInt(team);
+      const tier = parseInt(wheel_tier);
+
+      const event = db.get('SELECT * FROM events WHERE id = ?', [req.params.id]);
+      if (!event) return res.status(404).json({ error: 'Event not found' });
+
+      const validTeam = db.get('SELECT * FROM event_teams WHERE event_id = ? AND team_number = ?', [req.params.id, teamNum]);
+      if (!validTeam) return res.status(400).json({ error: 'Invalid team' });
+
+      const boss = db.get('SELECT * FROM roulette_bosses WHERE id = ? AND wheel_tier = ?', [parseInt(boss_id), tier]);
+      if (!boss) return res.status(400).json({ error: 'Invalid boss for this wheel tier' });
+
+      const bonusDrop = bonus_drop_id ? db.get('SELECT * FROM roulette_boss_drops WHERE id = ? AND boss_id = ?', [parseInt(bonus_drop_id), boss.id]) : null;
+
+      // Abandon any existing active spin for this team+tier
+      db.run("UPDATE roulette_spins SET status = 'abandoned' WHERE event_id = ? AND team = ? AND wheel_tier = ? AND status = 'active'",
+        [req.params.id, teamNum, tier]);
+
+      db.run(
+        'INSERT INTO roulette_spins (event_id, team, wheel_tier, boss_id, bonus_drop_id, spin_cost, spun_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.params.id, teamNum, tier, boss.id, bonusDrop?.id || null, 0, 'Admin']
+      );
+
+      broadcast(req.params.id);
+      res.json({ ok: true, boss_name: boss.boss_name, team_name: validTeam.team_name });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
   router.post('/roulette/events/:id/reset-banks', (req, res) => {
     db.run('DELETE FROM roulette_bank_log WHERE event_id = ?', [req.params.id]);
     broadcast(req.params.id);
