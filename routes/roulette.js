@@ -314,11 +314,11 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
     try {
       const imageData = fs.readFileSync(req.file.path).toString('base64');
       const response = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-5',
         max_tokens: 256,
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: imageData } },
-          { type: 'text', text: `This is an Old School RuneScape screenshot. Does the text "${event.code_word}" appear anywhere in this image? Reply with exactly "YES" or "NO" followed by a brief explanation.` }
+          { type: 'text', text: `This is an Old School RuneScape screenshot. Your job is to find the code word "${event.code_word}" (case-insensitive) anywhere in this image.\n\nOSRS uses a small pixel/bitmap font in the chat box — look carefully at the bottom-left chat area where the player would have typed this word. It will appear as part of a chat message like "PlayerName: ${event.code_word}". The pixel font can make letters look slightly blocky or unusual, so look carefully.\n\nAlso check any other visible text: overlays, notifications, item names, or anywhere on screen.\n\nReply with exactly "YES" or "NO" followed by a brief explanation of where you saw it (or why you didn't).` }
         ]}]
       });
       const answer = response.content[0].text.trim();
@@ -373,11 +373,11 @@ module.exports = function makeRouletteRouter(broadcast, broadcastSpin) {
     try {
       const imageData = fs.readFileSync(req.file.path).toString('base64');
       const response = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-5',
         max_tokens: 256,
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: imageData } },
-          { type: 'text', text: `This is an Old School RuneScape screenshot. Does the text "${player_name.trim()}" appear anywhere in this image? It may appear in the chatbox, interface, or anywhere on screen — look for it as part of a chat line like "${player_name.trim()}: " or just the name on its own. Reply with exactly "YES" or "NO" followed by a brief explanation.` }
+          { type: 'text', text: `This is an Old School RuneScape screenshot. Your job is to find the player name "${player_name.trim()}" (case-insensitive) anywhere in this image.\n\nOSRS uses a small pixel/bitmap font in the chat box — look carefully at the bottom-left chat area. The name will likely appear as part of a chat message like "${player_name.trim()}: " at the start of a line. The pixel font can make letters look slightly blocky or unusual, so look carefully.\n\nAlso check any other visible text: tab panel, friends list, overhead name, or anywhere on screen.\n\nReply with exactly "YES" or "NO" followed by a brief explanation of where you saw it (or why you didn't).` }
         ]}]
       });
       const answer = response.content[0].text.trim();
